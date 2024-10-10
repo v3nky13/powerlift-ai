@@ -1,20 +1,27 @@
 import cv2
 import mediapipe as mp
+from enum import Enum
+import numpy as np
+from matplotlib import pyplot as plt
+
+class SquatPhase(Enum):
+    START = 0
+    DESCENT = 1
+    BOTTOM = 2
+    ASCENT = 3
+    END = 4
+
+def calculate_angle(a, b, c):
+    ba = np.array(a) - np.array(b)  # Vector from hip to shoulder
+    bc = np.array(c) - np.array(b)  # Vector from hip to knee
+    
+    cosine_angle = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc))
+    angle = np.arccos(cosine_angle)
+    return np.degrees(angle)
 
 # Initialize pose estimation model
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
-
-cap = cv2.VideoCapture('squat_video.mp4')
-
-# Get frame rate
-frame_rate = cap.get(cv2.CAP_PROP_FPS)
-if frame_rate == 0 or frame_rate is None:
-    frame_rate = 30  # Default to 30 FPS
-
-frame_interval = max(1, int(frame_rate // 30))  # Ensure it's at least 1
-frame_count = 0
-paused = False
 
 # List of essential landmark indices for squat analysis
 essential_landmarks = {
@@ -27,6 +34,25 @@ essential_landmarks = {
     'left_ankle': mp_pose.PoseLandmark.LEFT_ANKLE,
     'right_ankle': mp_pose.PoseLandmark.RIGHT_ANKLE
 }
+
+cap = cv2.VideoCapture('squat_video.mp4')
+
+# Get frame rate
+frame_rate = cap.get(cv2.CAP_PROP_FPS)
+if frame_rate == 0 or frame_rate is None:
+    frame_rate = 30  # Default to 30 FPS
+
+frame_interval = max(1, int(frame_rate // 30))  # Ensure it's at least 1
+frame_count = 0
+paused = False
+
+currSquatPhase = SquatPhase.START
+print('START')
+topSquatPosition = None
+bottomSquatPosition = None
+
+hip_angles = []
+phase_frames = [0]
 
 while cap.isOpened():
     if not paused:
@@ -50,6 +76,36 @@ while cap.isOpened():
                 # Draw circles at the key points
                 cv2.circle(frame, (x, y), 5, (255, 0, 0), -1)
 
+            if topSquatPosition is None:
+                topSquatPosition = points['left_shoulder'][1]
+                phase_frames.append(frame_count)
+                print(f'START phase at frame 0 ({topSquatPosition = })')
+            
+            if currSquatPhase == SquatPhase.START and points['left_shoulder'][1] > topSquatPosition * 1.05:
+                currSquatPhase = SquatPhase.DESCENT
+                phase_frames.append(frame_count)
+                print(f'DESCENT phase at frame {frame_count}')
+            
+            kneeAngle = calculate_angle(points['left_hip'], points['left_knee'], points['left_ankle'])
+
+            if currSquatPhase == SquatPhase.DESCENT and kneeAngle < 90 and bottomSquatPosition is None:
+                currSquatPhase = SquatPhase.BOTTOM
+                phase_frames.append(frame_count)
+                bottomSquatPosition = points['left_shoulder'][1]
+                print(f'BOTTOM phase at frame {frame_count} ({bottomSquatPosition = })')
+            
+            if currSquatPhase == SquatPhase.BOTTOM and points['left_shoulder'][1] < bottomSquatPosition * 0.99:
+                currSquatPhase = SquatPhase.ASCENT
+                phase_frames.append(frame_count)
+                print(f'ASCENT phase at frame {frame_count}')
+            
+            if currSquatPhase == SquatPhase.ASCENT and kneeAngle > 170:
+                currSquatPhase = SquatPhase.END
+                phase_frames.append(frame_count)
+                print(f'END phase at frame {frame_count}')
+
+            hip_angles.append(calculate_angle(points['left_shoulder'], points['left_hip'], points['left_knee']))
+
             # Draw lines connecting the key points
             # Left side (shoulder -> hip -> knee -> ankle)
             cv2.line(frame, points['left_shoulder'], points['left_hip'], (0, 255, 0), 2)
@@ -64,10 +120,6 @@ while cap.isOpened():
         # Display the current frame
         cv2.imshow('Squat Analysis', frame)
 
-        # Save frame every 'frame_interval' frames
-        if frame_count % frame_interval == 0:
-            cv2.imwrite(f'frames/frame_{frame_count}.jpg', frame)
-
         frame_count += 1
 
     # Listen for key presses
@@ -79,3 +131,11 @@ while cap.isOpened():
 
 cap.release()
 cv2.destroyAllWindows()
+
+# print(f'{shk_angles_left = }\n\n{hka_angles_left = }')
+
+plt.plot(hip_angles)
+for x in phase_frames:
+    plt.axvline(x=x, color='g', linestyle='-')
+plt.title('Squat Hip Angle vs. Frame')
+plt.show()
