@@ -5,11 +5,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 class SquatPhase(Enum):
-    START = 0
-    DESCENT = 1
-    BOTTOM = 2
-    ASCENT = 3
-    END = 4
+    START = 1
+    DESCENT = 2
+    BOTTOM = 3
+    ASCENT = 4
+    END = 5
 
 def calculate_angle(a, b, c):
     ba = np.array(a) - np.array(b)  # Vector from hip to shoulder
@@ -35,7 +35,7 @@ essential_landmarks = {
     'right_ankle': mp_pose.PoseLandmark.RIGHT_ANKLE
 }
 
-cap = cv2.VideoCapture('squat_video.mp4')
+cap = cv2.VideoCapture('videos/sv1.mp4')
 
 # Get frame rate
 frame_rate = cap.get(cv2.CAP_PROP_FPS)
@@ -50,8 +50,9 @@ currSquatPhase = SquatPhase.START
 print('START')
 topSquatPosition = None
 bottomSquatPosition = None
+lowestKneeAngle = None
 
-hip_angles = []
+knee_angles = []
 phase_frames = [0]
 
 while cap.isOpened():
@@ -92,9 +93,15 @@ while cap.isOpened():
                 currSquatPhase = SquatPhase.BOTTOM
                 phase_frames.append(frame_count)
                 bottomSquatPosition = points['left_shoulder'][1]
+                lowestKneeAngle = kneeAngle
                 print(f'BOTTOM phase at frame {frame_count} ({bottomSquatPosition = })')
             
-            if currSquatPhase == SquatPhase.BOTTOM and points['left_shoulder'][1] < bottomSquatPosition * 0.99:
+            # if currSquatPhase == SquatPhase.BOTTOM and kneeAngle < lowestKneeAngle:
+            #     lowestKneeAngle = kneeAngle
+            #     bottomSquatPosition = points['left_shoulder'][1]
+            #     phase_frames.append(frame_count)
+            
+            if currSquatPhase == SquatPhase.BOTTOM and kneeAngle > 90:
                 currSquatPhase = SquatPhase.ASCENT
                 phase_frames.append(frame_count)
                 print(f'ASCENT phase at frame {frame_count}')
@@ -104,7 +111,7 @@ while cap.isOpened():
                 phase_frames.append(frame_count)
                 print(f'END phase at frame {frame_count}')
 
-            hip_angles.append(calculate_angle(points['left_shoulder'], points['left_hip'], points['left_knee']))
+            knee_angles.append(kneeAngle)
 
             # Draw lines connecting the key points
             # Left side (shoulder -> hip -> knee -> ankle)
@@ -134,8 +141,9 @@ cv2.destroyAllWindows()
 
 # print(f'{shk_angles_left = }\n\n{hka_angles_left = }')
 
-plt.plot(hip_angles)
+plt.plot(knee_angles)
 for x in phase_frames:
     plt.axvline(x=x, color='g', linestyle='-')
-plt.title('Squat Hip Angle vs. Frame')
+plt.title('Squat Knee Angle vs. Frame')
+plt.grid(True)
 plt.show()
