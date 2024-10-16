@@ -96,11 +96,6 @@ while cap.isOpened():
                 lowestKneeAngle = kneeAngle
                 print(f'BOTTOM phase at frame {frame_count} ({bottomSquatPosition = })')
             
-            # if currSquatPhase == SquatPhase.BOTTOM and kneeAngle < lowestKneeAngle:
-            #     lowestKneeAngle = kneeAngle
-            #     bottomSquatPosition = points['left_shoulder'][1]
-            #     phase_frames.append(frame_count)
-            
             if currSquatPhase == SquatPhase.BOTTOM and kneeAngle > 90:
                 currSquatPhase = SquatPhase.ASCENT
                 phase_frames.append(frame_count)
