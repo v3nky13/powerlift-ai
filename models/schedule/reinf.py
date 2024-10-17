@@ -46,6 +46,29 @@ class PowerliftingEnv(gym.Env):
         # Normalize and return the state as the initial observation
         self.state = np.array([self.current_strength, self.fatigue_level, self.soreness, self.progress_rate, self.days_since_rest])
         return self.state, {}
+    
+    def calculate_reward(self):
+        # Base reward from current strength and progress rate
+        strength_reward = (self.current_strength * 0.5) + (self.progress_rate * 0.5)
+
+        # Penalties for fatigue and soreness
+        fatigue_penalty = - (self.fatigue_level * 0.3)
+        soreness_penalty = - (self.soreness * 0.4)
+
+        # Encouragement for recovery: penalize for too many consecutive workout days
+        recovery_penalty = - (self.days_since_rest * 0.2) if self.days_since_rest > 2 else 0
+
+        # Competition preparation reward: reward for approaching the competition
+        competition_reward = (100 - self.days_till_competition) * 0.01  # Increase reward as days decrease
+
+        # Total reward calculation
+        reward = (strength_reward + fatigue_penalty + soreness_penalty +
+                recovery_penalty + competition_reward)
+
+        # Ensuring that the reward remains reasonable
+        reward = np.clip(reward, -1, 1)  # Normalize the reward to a range
+
+        return reward
 
     def step(self, action):
         # Execute the action and update the athlete's state accordingly
@@ -85,7 +108,7 @@ class PowerliftingEnv(gym.Env):
         self.state = np.array([self.current_strength, self.fatigue_level, self.soreness, self.progress_rate, self.days_since_rest])
 
         # Define reward: balance strength gain with low fatigue and soreness
-        reward = self.current_strength * 0.5 - (self.fatigue_level + self.soreness) * 0.25
+        reward = self.calculate_reward()
 
         # End the episode if the athlete is overtrained or max strength is reached
         if self.fatigue_level >= 1 or self.soreness >= 1:
