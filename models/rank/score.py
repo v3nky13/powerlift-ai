@@ -106,10 +106,3 @@ model = keras.models.load_model('score_model.h5')
 # Evaluate the model
 loss = model.evaluate(X_test, y_test)
 print(f'Test Loss: {loss}')
-
-input_data = [
-    [1, 0, 27.0, 80.0, 120.0, 80.0, 180.0, 93, 0, 27.0, 85.0]
-]
-
-input_scaled = scaler.transform(input_data)
-print(model.predict(input_scaled))
