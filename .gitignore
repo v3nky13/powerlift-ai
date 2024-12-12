@@ -1,2 +1,3 @@
 .vscode
 models/rank/op_data.csv
+models/rank/op_data_clean.csv
