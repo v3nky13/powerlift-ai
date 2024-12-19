@@ -1,6 +1,5 @@
 import os
-os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
-
+import numpy as np
 import pickle
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -104,5 +103,24 @@ if not os.path.exists("score_model.h5"):
 model = keras.models.load_model('score_model.h5')
 
 # Evaluate the model
-loss = model.evaluate(X_test, y_test)
-print(f'Test Loss: {loss}')
+y_pred = model.predict(X_test)
+
+# Mean Absolute Error (MAE)
+mae = np.mean(np.abs(y_test - y_pred))
+
+# Mean Squared Error (MSE)
+mse = np.mean((y_test - y_pred)**2)
+
+# Root Mean Squared Error (RMSE)
+rmse = np.sqrt(mse)
+
+# R^2 Score
+ss_total = ((y_test - y_test.mean())**2).sum().sum()  # Sum of squares total
+ss_residual = ((y_test - y_pred)**2).sum().sum()      # Sum of squares residual
+r2 = 1 - (ss_residual / ss_total)
+
+# Print metrics
+print(f"MAE: {mae:.4f}")
+print(f"MSE: {mse:.4f}")
+print(f"RMSE: {rmse:.4f}")
+print(f"R^2: {r2:.4f}")
