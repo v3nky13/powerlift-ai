@@ -36,7 +36,7 @@ essential_landmarks = {
 }
 
 cap = cv2.VideoCapture('videos/sv3.mp4')
-``
+
 # Get frame rate
 frame_rate = cap.get(cv2.CAP_PROP_FPS)
 if frame_rate == 0 or frame_rate is None:
