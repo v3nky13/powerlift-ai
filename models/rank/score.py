@@ -124,3 +124,13 @@ print(f"MAE: {mae:.4f}")
 print(f"MSE: {mse:.4f}")
 print(f"RMSE: {rmse:.4f}")
 print(f"R^2: {r2:.4f}")
+
+# Accuracy
+correct = 0
+for i in range(len(y_pred)):
+    for j in range(3):
+        if np.isclose(y_pred[i][j], y_test.iloc[i, j], rtol=0.2):
+            correct += 1
+
+accuracy = correct / (len(y_test) * 3) * 100
+print(f"Accuracy: {accuracy:.2f}%")
