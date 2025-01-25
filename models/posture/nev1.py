@@ -100,23 +100,23 @@ def analyze_squat():
                     print(f'DESCENT phase at frame {frame_count}')
 
                 kneeAngle = calculate_angle(points['left_hip'], points['left_knee'], points['left_ankle'])
-
                 if currSquatPhase == SquatPhase.DESCENT:
                     kneeAngle = calculate_angle(points['left_hip'], points['left_knee'], points['left_ankle'])
 
                     # Check if squat reaches sufficient depth
-                    if kneeAngle < 95 and bottomSquatPosition is None:
-                        currSquatPhase = SquatPhase.BOTTOM
-                        phase_frames.append(frame_count)
-                        bottomSquatPosition = points['left_shoulder'][1]
-                        lowestKneeAngle = kneeAngle
-                        print(f'BOTTOM phase at frame {frame_count} ({bottomSquatPosition = })')
+                    if points['left_hip'][1] > points['left_knee'][1]:  # Hip is below the knee
+                        if kneeAngle < 95 and bottomSquatPosition is None:
+                            currSquatPhase = SquatPhase.BOTTOM
+                            phase_frames.append(frame_count)
+                            bottomSquatPosition = points['left_shoulder'][1]
+                            lowestKneeAngle = kneeAngle
+                            print(f'BOTTOM phase at frame {frame_count} ({bottomSquatPosition = })')
 
-                        # Squat is proper
-                        feedback = "Good squat depth!"
-                        skeletal_color = (0, 255, 0)  # Green for correct squat
+                            # Squat is proper
+                            feedback = "Good squat depth!"
+                            skeletal_color = (0, 255, 0)  # Green for correct squat
                     elif frame_count - phase_frames[-1] > frame_rate:  # Timeout if depth not reached
-                        feedback = "Squat depth insufficient!"
+                        feedback = "Hip did not descend below the knee!"
                         skeletal_color = (0, 0, 255)  # Red for incorrect squat
                         currSquatPhase = SquatPhase.BOTTOM
 
@@ -135,41 +135,4 @@ def analyze_squat():
                         # Overlay feedback text
                         cv2.putText(improper_frame, feedback, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, skeletal_color, 2, cv2.LINE_AA)
 
-                        print(f'IMPROPER SQUAT: Depth not reached at frame {frame_count}')
-                        #break
-
-                if currSquatPhase == SquatPhase.BOTTOM and kneeAngle > 90:
-                    currSquatPhase = SquatPhase.ASCENT
-                    phase_frames.append(frame_count)
-                    print(f'ASCENT phase at frame {frame_count}')
-
-                if currSquatPhase == SquatPhase.ASCENT and kneeAngle > 170:
-                    currSquatPhase = SquatPhase.END
-                    phase_frames.append(frame_count)
-                    print(f'END phase at frame {frame_count}')
-
-                knee_angles.append(kneeAngle)
-                cv2.line(frame, points['left_shoulder'], points['left_hip'], skeletal_color, 2)
-                cv2.line(frame, points['left_hip'], points['left_knee'], skeletal_color, 2)
-                cv2.line(frame, points['left_knee'], points['left_ankle'], skeletal_color, 2)
-
-                cv2.line(frame, points['right_shoulder'], points['right_hip'], skeletal_color, 2)
-                cv2.line(frame, points['right_hip'], points['right_knee'], skeletal_color, 2)
-                cv2.line(frame, points['right_knee'], points['right_ankle'], skeletal_color, 2)
-                cv2.putText(frame, feedback, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, skeletal_color, 2, cv2.LINE_AA)
-                
-            
-            frame_count += 1
-            out.write(frame)
-
-    cap.release()
-    out.release()
-    cv2.destroyAllWindows()
-
-    print("heyyyyyy")
-
-    # Return the processed video file
-    return send_file(output_video_path, as_attachment=True)
-
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5001)
+                        print(f'IMPROPER SQUAT: Hip above knee at frame {frame_count}')

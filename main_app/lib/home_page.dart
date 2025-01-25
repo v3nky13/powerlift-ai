@@ -50,7 +50,7 @@ class _HomePageState extends State<HomePage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.event),
-            label: 'Events',
+            label: 'Goal',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.accessibility_new),
@@ -70,7 +70,7 @@ class _HomePageState extends State<HomePage> {
       case 0:
         return 'Schedule';
       case 1:
-        return 'Events';
+        return 'Goal';
       case 2:
         return 'Posture';
       case 3:
