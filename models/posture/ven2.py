@@ -5,8 +5,116 @@ import numpy as np
 import os
 from matplotlib import pyplot as plt
 from enum import Enum
+from flask_sqlalchemy import SQLAlchemy
+from flask_bcrypt import Bcrypt
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+app.config['SECRET_KEY'] = 'your_secret_key'
+
+db = SQLAlchemy(app)
+bcrypt = Bcrypt(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), nullable=False)
+    email = db.Column(db.String(150), unique=True, nullable=False)
+    password = db.Column(db.String(150), nullable=False)
+    dob = db.Column(db.String(50), nullable=False)
+    height = db.Column(db.Float, nullable=False)
+    weight = db.Column(db.Float, nullable=False)
+    squatPR = db.Column(db.Float, nullable=False)
+    benchPR = db.Column(db.Float, nullable=False)
+    deadliftPR = db.Column(db.Float, nullable=False)
+    gender = db.Column(db.String(50), nullable=False)
+    experienceLevel = db.Column(db.String(50), nullable=False)
+    equipment = db.Column(db.String(50), nullable=False)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    name = data.get('name')
+    email = data.get('email')
+    password = bcrypt.generate_password_hash(data.get('password')).decode('utf-8')
+    dob = data.get('dob')
+    height = float(data.get('height'))
+    weight = float(data.get('weight'))
+    squatPR = float(data.get('squatPR'))
+    benchPR = float(data.get('benchPR'))
+    deadliftPR = float(data.get('deadliftPR'))
+    gender = data.get('gender')
+    experienceLevel = data.get('experienceLevel')
+    equipment = data.get('equipment')
+    
+    user = User(name=name, email=email, password=password, dob=dob, height=height, weight=weight,
+                squatPR=squatPR, benchPR=benchPR, deadliftPR=deadliftPR, gender=gender,
+                experienceLevel=experienceLevel, equipment=equipment)
+    db.session.add(user)
+    db.session.commit()
+    print("User registered successfully")
+    return jsonify({'message': 'User registered successfully'})
+
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    email = data.get('email')
+    password = data.get('password')
+    user = User.query.filter_by(email=email).first()
+    if user and bcrypt.check_password_hash(user.password, password):
+        login_user(user)
+        return jsonify({'message': 'Login successful', 'name': user.name}), 200
+    return jsonify({'error': 'Invalid credentials'}), 401
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return jsonify({'message': 'Logged out successfully'})
+
+@app.route('/get_user', methods=['GET'])
+@login_required
+def get_user():
+    user_data = {
+        'name': current_user.name,
+        'email': current_user.email,
+        'dob': current_user.dob,
+        'height': current_user.height,
+        'weight': current_user.weight,
+        'squatPR': current_user.squatPR,
+        'benchPR': current_user.benchPR,
+        'deadliftPR': current_user.deadliftPR,
+        'gender': current_user.gender,
+        'experienceLevel': current_user.experienceLevel,
+        'equipment': current_user.equipment
+    }
+    return jsonify(user_data)
+
+@app.route('/update_user', methods=['POST'])
+@login_required
+def update_user():
+    data = request.get_json()
+    current_user.name = data.get('name', current_user.name)
+    current_user.dob = data.get('dob', current_user.dob)
+    current_user.height = float(data.get('height', current_user.height))
+    current_user.weight = float(data.get('weight', current_user.weight))
+    current_user.squatPR = float(data.get('squatPR', current_user.squatPR))
+    current_user.benchPR = float(data.get('benchPR', current_user.benchPR))
+    current_user.deadliftPR = float(data.get('deadliftPR', current_user.deadliftPR))
+    current_user.gender = data.get('gender', current_user.gender)
+    current_user.experienceLevel = data.get('experienceLevel', current_user.experienceLevel)
+    current_user.equipment = data.get('equipment', current_user.equipment)
+    db.session.commit()
+    return jsonify({'message': 'User data updated successfully'})
+
+with app.app_context():
+    db.create_all()
 
 class SquatPhase(Enum):
     START = 1

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:http/http.dart' as http;
 import 'home_page.dart';
 import 'signup_page.dart';
+import 'dart:convert';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -15,20 +17,44 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController =
       TextEditingController(text: "password123"); // Default password
 
-  void _login() {
+  void _login() async {
     if (_formKey.currentState!.validate()) {
       final email = _emailController.text;
       final password = _passwordController.text;
-      
-      // Perform login action here
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Logged in as $email')),
-      );
-      // Navigate to HomePage and replace LoginPage
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomePage()),
-      );
+
+      final url = Uri.parse('http://10.0.2.2:5001/login'); // API URL
+
+      try {
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'email': email, 'password': password}),
+        );
+
+        if (response.statusCode == 200) {
+          final responseData = jsonDecode(response.body);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Logged in as ${responseData['name']}')),
+          );
+
+          // Navigate to HomePage and replace LoginPage
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => HomePage()),
+          );
+        } else {
+          // Show error message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Login failed: ${jsonDecode(response.body)['error']}')),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error connecting to server')),
+        );
+      }
     }
   }
 

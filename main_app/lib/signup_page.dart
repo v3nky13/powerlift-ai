@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class SignUpPage extends StatefulWidget {
   @override
@@ -22,29 +24,50 @@ class _SignUpPageState extends State<SignUpPage> {
 
   String _selectedGender = 'Male';
   String _selectedExperienceLevel = 'Beginner';
+  String _selectedEquipment = 'Classic';
 
   Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
-      final name = _nameController.text;
-      final email = _emailController.text;
-      final password = _passwordController.text;
-      final confirmPassword = _confirmPasswordController.text;
-      final dob = _dobController.text;
-      final height = _heightController.text;
-      final weight = _weightController.text;
-      final squatPR = _squatPRController.text;
-      final benchPR = _benchPRController.text;
-      final deadliftPR = _deadliftPRController.text;
-      final gender = _selectedGender;
-      final experienceLevel = _selectedExperienceLevel;
+      final url = Uri.parse('http://10.0.2.2:5001/register'); // Replace with your backend URL
 
-      // Implement your sign-up logic here
+      final Map<String, dynamic> userData = {
+        "name": _nameController.text,
+        "email": _emailController.text,
+        "password": _passwordController.text,
+        "dob": _dobController.text,
+        "height": _heightController.text,
+        "weight": _weightController.text,
+        "squatPR": _squatPRController.text,
+        "benchPR": _benchPRController.text,
+        "deadliftPR": _deadliftPRController.text,
+        "gender": _selectedGender,
+        "experienceLevel": _selectedExperienceLevel,
+        "equipment": _selectedEquipment
+      };
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Profile created for $name')),
-      );
-      // Navigate back to login page after sign-up
-      Navigator.pop(context);
+      try {
+        final response = await http.post(
+          url,
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode(userData),
+        );
+
+        if (response.statusCode == 201) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Profile created successfully!')),
+          );
+          Navigator.pop(context); // Navigate back to login page
+        } else {
+          final errorMessage = jsonDecode(response.body)['message'] ?? 'Sign-up failed';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(errorMessage)),
+          );
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: Unable to connect to the server')),
+        );
+      }
     }
   }
 
@@ -306,6 +329,25 @@ class _SignUpPageState extends State<SignUpPage> {
                             .map((experienceLevel) => DropdownMenuItem(
                                   value: experienceLevel,
                                   child: Text(experienceLevel),
+                                ))
+                            .toList(),
+                      ),
+                      SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: _selectedEquipment,
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedEquipment = value!;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Equipment',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: ['Classic', 'Equipped']
+                            .map((equipment) => DropdownMenuItem(
+                                  value: equipment,
+                                  child: Text(equipment),
                                 ))
                             .toList(),
                       ),

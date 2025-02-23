@@ -57,7 +57,7 @@ class _SquatVideoUploaderState extends State<SquatVideoUploader> {
     try {
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://192.168.220.134:5001/analyze'), // Update with your backend IP
+        Uri.parse('http://10.0.2.2:5001/analyze'), // Update with your backend IP
       );
       request.files.add(await http.MultipartFile.fromPath('video', selectedVideo!.path));
 
