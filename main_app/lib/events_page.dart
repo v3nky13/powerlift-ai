@@ -7,15 +7,9 @@ class EventsPage extends StatelessWidget {
   final List<Map<String, String>> events = [
     {
       'date': '07 Feb - 09 Feb',
-      'title': 'North India Senior, Sub Junior & Junior Equipped Powerlifting Championship 2024-25',
+      'title': 'North India Sub Junior & Junior Equipped Powerlifting Championship 2024-25',
       'region': 'Zonal',
       'location': 'Bhiwani, Haryana',
-    },
-    {
-      'date': '19 Feb - 23 Feb',
-      'title': 'National Senior Classic Powerlifting Championship 2025',
-      'region': 'National',
-      'location': 'Phagwara, Punjab',
     },
     {
       'date': '20 May - 25 May',
@@ -25,7 +19,7 @@ class EventsPage extends StatelessWidget {
     },
     {
       'date': '19 Jun - 27 Jun',
-      'title': 'National Sub Junior, Junior & Senior Equipped Powerlifting Championship 2025',
+      'title': 'National Sub Junior & Junior Equipped Powerlifting Championship 2025',
       'region': 'National',
       'location': 'Davanagere, Karnataka',
     },
@@ -101,7 +95,7 @@ class EventsPage extends StatelessWidget {
                         SizedBox(height: 16),
                         TextField(
                           decoration: InputDecoration(
-                            labelText: 'Expected Squat Weight',
+                            labelText: 'Set Squat Weight',
                             border: OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
@@ -109,7 +103,7 @@ class EventsPage extends StatelessWidget {
                         SizedBox(height: 16),
                         TextField(
                           decoration: InputDecoration(
-                            labelText: 'Expected Benchpress Weight',
+                            labelText: 'Set Benchpress Weight',
                             border: OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
@@ -117,7 +111,7 @@ class EventsPage extends StatelessWidget {
                         SizedBox(height: 16),
                         TextField(
                           decoration: InputDecoration(
-                            labelText: 'Expected Deadlift Weight',
+                            labelText: 'Set Deadlift Weight',
                             border: OutlineInputBorder(),
                           ),
                           keyboardType: TextInputType.number,
@@ -219,7 +213,7 @@ class _EventCardState extends State<EventCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Predicted Rank:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Set Rank:', style: TextStyle(fontWeight: FontWeight.bold)),
                       Text('1'),
                     ],
                   ),
@@ -227,7 +221,7 @@ class _EventCardState extends State<EventCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Predicted Squat Weight:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Set Squat Weight:', style: TextStyle(fontWeight: FontWeight.bold)),
                       SizedBox(
                         width: 100,
                         child: TextField(
@@ -245,7 +239,7 @@ class _EventCardState extends State<EventCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Predicted Benchpress Weight:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Set Benchpress Weight:', style: TextStyle(fontWeight: FontWeight.bold)),
                       SizedBox(
                         width: 100,
                         child: TextField(
@@ -263,7 +257,7 @@ class _EventCardState extends State<EventCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Predicted Deadlift Weight:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('Set Deadlift Weight:', style: TextStyle(fontWeight: FontWeight.bold)),
                       SizedBox(
                         width:100,
                         child: TextField(
