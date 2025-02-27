@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:main_app/chat_app.dart';
 import 'schedule_page.dart';
 import 'events_page.dart';
 import 'posture_page.dart';
@@ -17,6 +18,7 @@ class _HomePageState extends State<HomePage> {
     SchedulePage(),
     EventsPage(),
     PosturePage(),
+    ChatApp(), // Chat page added between Posture and Profile
     ProfilePage(),
   ];
 
@@ -31,7 +33,7 @@ class _HomePageState extends State<HomePage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          _getPageTitle(), // Dynamically set the title based on the page
+          _getPageTitle(),
           style: TextStyle(color: Colors.white),
         ),
         backgroundColor: Colors.black,
@@ -40,7 +42,7 @@ class _HomePageState extends State<HomePage> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
-        type: BottomNavigationBarType.fixed, // Ensures all items are visible
+        type: BottomNavigationBarType.fixed,
         selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey,
         items: [
@@ -49,12 +51,16 @@ class _HomePageState extends State<HomePage> {
             label: 'Schedule',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.event),
+            icon: Icon(Icons.flag),
             label: 'Goal',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.accessibility_new),
+            icon: Icon(Icons.accessibility),
             label: 'Posture',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat),
+            label: 'Ask AI',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.account_circle),
@@ -74,6 +80,8 @@ class _HomePageState extends State<HomePage> {
       case 2:
         return 'Posture';
       case 3:
+        return 'Ask AI';
+      case 4:
         return 'Profile';
       default:
         return '';
