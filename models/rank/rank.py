@@ -1,5 +1,7 @@
+import os
 import numpy as np
 import pandas as pd
+import pickle
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, r2_score
@@ -25,6 +27,10 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
+
+if not os.path.exists("rank_scaler.pkl"):
+    with open("rank_scaler.pkl", "wb") as f:
+        pickle.dump(scaler, f)
 
 # RC-ELM Implementation
 def rc_elm_train(X, y, hidden_neurons, C):
@@ -73,6 +79,16 @@ optimal_hidden, optimal_C = woa_optimization(X_train_scaled, y_train)
 
 # Train final RC-ELM model
 W, b, beta = rc_elm_train(X_train_scaled, y_train, optimal_hidden, optimal_C)
+
+# Save the trained model parameters
+model_params = {
+    'W': W,
+    'b': b,
+    'beta': beta
+}
+
+with open("rank_model.pkl", "wb") as f:
+    pickle.dump(model_params, f)
 
 y_pred = rc_elm_predict(X_test_scaled, W, b, beta)
 

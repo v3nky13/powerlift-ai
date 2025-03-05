@@ -1,13 +1,21 @@
-from flask import Flask, request, jsonify, send_file
-import cv2
-import mediapipe as mp
-import numpy as np
 import os
-from matplotlib import pyplot as plt
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
+
+import pickle
+from tensorflow import keras
+import cv2
+import numpy as np
+import mediapipe as mp
 from enum import Enum
+from flask import Flask, request, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from langchain_groq import ChatGroq
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from dotenv import load_dotenv
+from datetime import datetime
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -17,6 +25,7 @@ db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+currUserId = None
 
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
@@ -32,6 +41,11 @@ class User(db.Model, UserMixin):
     gender = db.Column(db.String(50), nullable=False)
     experienceLevel = db.Column(db.String(50), nullable=False)
     equipment = db.Column(db.String(50), nullable=False)
+
+    goal_squat_weight = db.Column(db.Float, nullable=True)
+    goal_bench_weight = db.Column(db.Float, nullable=True)
+    goal_deadlift_weight = db.Column(db.Float, nullable=True)
+    goal_date = db.Column(db.String(50), nullable=True)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -59,40 +73,51 @@ def register():
     db.session.add(user)
     db.session.commit()
     print("User registered successfully")
-    return jsonify({'message': 'User registered successfully'})
+    return jsonify({'message': 'User registered successfully'}), 201
 
 @app.route('/login', methods=['POST'])
 def login():
+    global currUserId
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
     user = User.query.filter_by(email=email).first()
     if user and bcrypt.check_password_hash(user.password, password):
         login_user(user)
+        currUserId = user.id
         return jsonify({'message': 'Login successful', 'name': user.name}), 200
     return jsonify({'error': 'Invalid credentials'}), 401
 
-@app.route('/logout')
-@login_required
+@app.route('/logout', methods=['POST'])
 def logout():
+    global currUserId
     logout_user()
-    return jsonify({'message': 'Logged out successfully'})
+    currUserId = None
+    return jsonify({'message': 'Logged out successfully'}), 200
 
 @app.route('/get_user', methods=['GET'])
-@login_required
 def get_user():
+    user = User.query.filter_by(id=currUserId).first()
+    squatScore = round(user.squatPR / 365 * 100)
+    benchScore = round(user.benchPR / 315 * 100)
+    deadliftScore = round(user.deadliftPR / 340 * 100)
+    overallScore = round((squatScore + benchScore + deadliftScore) / 3)
     user_data = {
-        'name': current_user.name,
-        'email': current_user.email,
-        'dob': current_user.dob,
-        'height': current_user.height,
-        'weight': current_user.weight,
-        'squatPR': current_user.squatPR,
-        'benchPR': current_user.benchPR,
-        'deadliftPR': current_user.deadliftPR,
-        'gender': current_user.gender,
-        'experienceLevel': current_user.experienceLevel,
-        'equipment': current_user.equipment
+        'name': user.name,
+        'email': user.email,
+        'dob': user.dob,
+        'height': user.height,
+        'weight': user.weight,
+        'squatPR': user.squatPR,
+        'benchPR': user.benchPR,
+        'deadliftPR': user.deadliftPR,
+        'gender': user.gender,
+        'experienceLevel': user.experienceLevel,
+        'equipment': user.equipment,
+        'squatScore': squatScore,
+        'benchScore': benchScore,
+        'deadliftScore': deadliftScore,
+        'overallScore': overallScore
     }
     return jsonify(user_data)
 
@@ -113,8 +138,154 @@ def update_user():
     db.session.commit()
     return jsonify({'message': 'User data updated successfully'})
 
+@app.route('/set_goal', methods=['POST'])
+def set_goal():
+    try:
+        data = request.get_json()
+
+        # Fetch the user from the database
+        user = User.query.get(currUserId)
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+
+        # Update user goal fields
+        user.goal_squat_weight = float(data.get('goal_squat_weight'))
+        user.goal_bench_weight = float(data.get('goal_bench_weight'))
+        user.goal_deadlift_weight = float(data.get('goal_deadlift_weight'))
+        user.goal_date = data.get('goal_date')
+        user.goal_event = data.get('goal_event')
+
+        db.session.commit()
+        print("Goal set successfully")
+        return jsonify({'message': 'Goal set successfully!'}), 200
+
+    except Exception as e:
+        print("Error:", str(e))  # Log error
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/get_rank_score', methods=['POST'])
+def get_rank_score():
+    global currUserId
+
+    data = request.get_json()
+    event_id = data.get('event_id')
+    event_date = data.get('event_date')
+    print("Event ID:", event_id)
+    print("Event Date:", event_date)
+    print("Current User ID:", currUserId)
+
+    user = User.query.filter_by(id=currUserId).first()
+
+    dob = datetime.strptime(user.dob, '%Y-%m-%d')
+    event_date = datetime.strptime(f'{event_date} 2025', '%d %b %Y')
+    today = datetime.today()
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+    diffDays = (event_date - today).days
+
+    score_scaler = pickle.load(open("score_scaler.pkl", "rb"))
+    score_model = keras.models.load_model('score_model.h5')
+
+    score_input_scaled = score_scaler.transform([[
+        1 if user.gender == 'Male' else 0,
+        1 if user.equipment == 'Equipped' else 0,
+        age,
+        user.weight,
+        user.squatPR,
+        user.benchPR,
+        user.deadliftPR,
+        diffDays,
+        1 if user.equipment == 'Equipped' else 0,
+        age,
+        user.weight
+    ]])
+
+    score_pred = score_model.predict(score_input_scaled)
+
+    rank_scaler = pickle.load(open("rank_scaler.pkl", "rb"))
+    rank_model_params = pickle.load(open("rank_model.pkl", "rb"))
+
+    W = rank_model_params['W']
+    b = rank_model_params['b']
+    beta = rank_model_params['beta']
+
+    def rc_elm_predict(X, W, b, beta):
+        H = np.tanh(np.dot(X, W.T) + b)
+        return np.dot(H, beta)
+
+    rank_input_scaled = rank_scaler.transform([[
+        0 if user.gender == 'Male' else 1,
+        0 if event_id == 2 else 1,
+        2 if event_id in [4, 5] else 0 if age <= 19 else 1,
+        user.weight,
+        score_pred[0][0],
+        score_pred[0][1],
+        score_pred[0][2]
+    ]])
+
+    rank_pred = rc_elm_predict(rank_input_scaled, W, b, beta)
+
+    rank_score = f"{round(int(rank_pred[0][0]))}"
+    default_squat_weight = str(int(round(score_pred[0][0] / 5)) * 5)
+    default_bench_weight = str(int(round(score_pred[0][1] / 5)) * 5)
+    default_deadlift_weight = str(int(round(score_pred[0][2] / 5)) * 5)
+
+    return jsonify({
+        'rank_score': rank_score,
+        'default_squat_weight': default_squat_weight,
+        'default_bench_weight': default_bench_weight,
+        'default_deadlift_weight': default_deadlift_weight
+    })
+
 with app.app_context():
     db.create_all()
+
+# Load API key for Groq LLM
+load_dotenv()
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY is not set. Check your environment variables or .env file.")
+
+# Initialize LLM
+llm = ChatGroq(
+    model="llama-3.3-70b-versatile",
+    api_key=GROQ_API_KEY,
+    temperature=0,
+    streaming=True
+)
+
+# Load saved ChromaDB embeddings
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+vector_store = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
+
+# API endpoint to handle user queries
+@app.route("/chat", methods=["POST"])
+def chat():
+    print('Hit route')  
+    data = request.json
+    user_question = data.get("question", "")
+
+    if not user_question:
+        return jsonify({"error": "Question is required"}), 400
+
+    # Perform similarity search
+    retrieved_docs = vector_store.similarity_search(user_question, k=3)
+    context = "\n".join([doc.page_content for doc in retrieved_docs])
+
+    # Construct prompt
+    prompt = f"""
+    You are an assistant for powerlifting. Answer questions using the context below.
+    If you don't know, just say you don't know, while providing answer give in bullet points.
+    
+    Context:
+    {context}
+
+    Question: {user_question}
+    Answer:
+    """
+
+    response = llm.invoke(prompt).content
+    return jsonify({"response": response})
 
 class SquatPhase(Enum):
     START = 1

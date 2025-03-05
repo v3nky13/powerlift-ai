@@ -6,3 +6,8 @@ numpy
 opencv-python
 mediapipe
 matplotlib
+langchain_groq
+langchain_chroma
+langchain_huggingface
+pickle
+tensorflow

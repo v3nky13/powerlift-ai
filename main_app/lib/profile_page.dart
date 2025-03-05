@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:math';
+import 'login_page.dart';
 
 class ProfilePage extends StatefulWidget {
   @override
@@ -18,7 +19,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<Map<String, dynamic>> _fetchAthleteStats() async {
-    final url = Uri.parse('http://10.0.2.2:5001/get_user'); // Change URL as needed
+    final url = Uri.parse('http://10.0.2.2:5001/get_user');
 
     try {
       final response = await http.get(url);
@@ -33,156 +34,143 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _logout(BuildContext context) async {
+    final url = Uri.parse('http://10.0.2.2:5001/logout');
+
+    try {
+      final response = await http.post(url);
+      if (response.statusCode == 200) {
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => LoginPage()));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Logout failed')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: Unable to connect to server')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background Image
-          Opacity(
-            opacity: 0.3,
-            child: Image.asset(
-              'assets/background.jpg',
-              fit: BoxFit.cover,
-              height: double.infinity,
-              width: double.infinity,
-            ),
-          ),
-          FutureBuilder<Map<String, dynamic>>(
-            future: _athleteData,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              } else if (snapshot.hasError) {
-                return Center(child: Text("Error loading data"));
-              } else if (!snapshot.hasData) {
-                return Center(child: Text("No data available"));
-              }
+      body: FutureBuilder<Map<String, dynamic>>(
+        future: _athleteData,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text("Error loading data"));
+          } else if (!snapshot.hasData) {
+            return Center(child: Text("No data available"));
+          }
 
-              final athlete = snapshot.data!;
-              int age = DateTime.now().year - DateTime.parse(athlete['dob']).year;
-              if (DateTime.now().month < DateTime.parse(athlete['dob']).month ||
-                  (DateTime.now().month == DateTime.parse(athlete['dob']).month &&
-                      DateTime.now().day < DateTime.parse(athlete['dob']).day)) {
-                age--;
-              }
+          final athlete = snapshot.data!;
+          int age = _calculateAge(athlete['dob']);
 
-              return SingleChildScrollView(
-                child: Container(
+          return Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.all(8.0),
                   child: Column(
                     children: [
-                      // Athlete Stats Card
-                      Card(
-                        color: Colors.grey[100],
-                        elevation: 5,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Athlete Stats',
-                                      style: TextStyle(
-                                          fontSize: 20, fontWeight: FontWeight.bold)),
-                                  IconButton(
-                                    icon: Icon(Icons.refresh, size: 24),
-                                    onPressed: () {
-                                      setState(() {
-                                        _athleteData = _fetchAthleteStats();
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 8),
-                              buildStatRow('Name:', athlete['name']),
-                              buildStatRow('Age:', '$age'),
-                              buildStatRow('Body Weight:', '${athlete['weight']} kg'),
-                              buildStatRow('Squat PR:', '${athlete['squatPR']} kg'),
-                              buildStatRow('Bench PR:', '${athlete['benchPR']} kg'),
-                              buildStatRow('Deadlift PR:', '${athlete['deadliftPR']} kg'),
-                              buildStatRow('Experience Level:', athlete['experienceLevel']),
-                              buildStatRow('Equipment:', athlete['equipment']),
-                            ],
-                          ),
-                        ),
-                      ),
+                      buildAthleteStatsCard(athlete, age),
                       SizedBox(height: 8),
-
-                      // Performance Indicators Card
-                      Card(
-                        color: Colors.grey[100],
-                        elevation: 5,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text('Performance',
-                                      style: TextStyle(
-                                          fontSize: 20, fontWeight: FontWeight.bold)),
-                                  IconButton(
-                                    icon: Icon(Icons.info_outline, size: 30),
-                                    onPressed: () {
-                                      _showInfoDialog(context);
-                                    },
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 8),
-                              PerformanceIndicatorRow(label: 'Overall', score: athlete['overallScore']),
-                              PerformanceIndicatorRow(label: 'Squat', score: athlete['squatScore']),
-                              PerformanceIndicatorRow(label: 'Bench Press', score: athlete['benchScore']),
-                              PerformanceIndicatorRow(label: 'Deadlift', score: athlete['deadliftScore']),
-                            ],
-                          ),
-                        ),
-                      ),
+                      buildPerformanceCard(athlete),
                     ],
                   ),
                 ),
-              );
-            },
-          ),
-        ],
+              ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _logout(context),
+        backgroundColor: Colors.black,
+        child: Icon(Icons.logout, color: Colors.white),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+
+  int _calculateAge(String dob) {
+    DateTime birthDate = DateTime.parse(dob);
+    DateTime today = DateTime.now();
+    int age = today.year - birthDate.year;
+
+    if (today.month < birthDate.month ||
+        (today.month == birthDate.month && today.day < birthDate.day)) {
+      age--;
+    }
+    return age;
+  }
+
+  Widget buildAthleteStatsCard(Map<String, dynamic> athlete, int age) {
+    return Card(
+      color: Colors.grey[100],
+      elevation: 5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            buildHeader('Athlete Stats'),
+            buildStatRow('Name:', athlete['name']),
+            buildStatRow('Age:', '$age'),
+            buildStatRow('Body Weight:', '${athlete['weight']} kg'),
+            buildStatRow('Squat PR:', '${athlete['squatPR']} kg'),
+            buildStatRow('Bench PR:', '${athlete['benchPR']} kg'),
+            buildStatRow('Deadlift PR:', '${athlete['deadliftPR']} kg'),
+            buildStatRow('Experience Level:', athlete['experienceLevel']),
+            buildStatRow('Equipment:', athlete['equipment']),
+          ],
+        ),
       ),
     );
   }
 
-  void _showInfoDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Performance Indicators Info'),
-          content: Text(
-            'Performance indicators represent the strength or skill level in various '
-            'powerlifting movements. A higher score indicates better performance.',
-          ),
-          actions: [
-            TextButton(
-              child: Text('Close'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
+  Widget buildPerformanceCard(Map<String, dynamic> athlete) {
+    return Card(
+      color: Colors.grey[100],
+      elevation: 5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            buildHeader('Performance'),
+            PerformanceIndicatorRow(label: 'Overall', score: athlete['overallScore'] ?? 0),
+            PerformanceIndicatorRow(label: 'Squat', score: athlete['squatScore'] ?? 0),
+            PerformanceIndicatorRow(label: 'Bench Press', score: athlete['benchScore'] ?? 0),
+            PerformanceIndicatorRow(label: 'Deadlift', score: athlete['deadliftScore'] ?? 0),
           ],
-        );
-      },
+        ),
+      ),
+    );
+  }
+
+  Widget buildHeader(String title) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        IconButton(
+          icon: Icon(Icons.refresh, size: 24),
+          onPressed: () {
+            setState(() {
+              _athleteData = _fetchAthleteStats();
+            });
+          },
+        ),
+      ],
     );
   }
 
