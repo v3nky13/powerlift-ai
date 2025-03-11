@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'config.dart';
 
 class EventsPage extends StatefulWidget {
   @override
@@ -75,7 +76,7 @@ class _EventsPageState extends State<EventsPage> {
       _isLoading = true;
     });
 
-    final url = Uri.parse('http://10.0.2.2:5001/set_goal');
+    final url = Uri.parse('${backendUrl}set_goal');
 
     final response = await http.post(
       url,
@@ -224,7 +225,7 @@ class _EventCardState extends State<EventCard> {
   }
 
   Future<void> _fetchRankScore() async {
-    final url = Uri.parse('http://10.0.2.2:5001/get_rank_score');
+    final url = Uri.parse('${backendUrl}get_rank_score');
 
     final response = await http.post(
       url,
@@ -258,7 +259,7 @@ class _EventCardState extends State<EventCard> {
       _isLoading = true; // Show loading spinner
     });
 
-    final url = Uri.parse('http://10.0.2.2:5001/set_goal');
+    final url = Uri.parse('${backendUrl}set_goal');
 
     final response = await http.post(
       url,

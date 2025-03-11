@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 import 'package:path_provider/path_provider.dart';
+import 'config.dart';
 
 class PosturePage extends StatelessWidget {
   @override
@@ -57,7 +58,7 @@ class _SquatVideoUploaderState extends State<SquatVideoUploader> {
     try {
       final request = http.MultipartRequest(
         'POST',
-        Uri.parse('http://10.0.2.2:5001/analyze'), // Update with your backend IP
+        Uri.parse('${backendUrl}analyze'),
       );
       request.files.add(await http.MultipartFile.fromPath('video', selectedVideo!.path));
 

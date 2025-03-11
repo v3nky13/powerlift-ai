@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:math';
 import 'login_page.dart';
+import 'config.dart';
 
 class ProfilePage extends StatefulWidget {
   @override
@@ -19,7 +20,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<Map<String, dynamic>> _fetchAthleteStats() async {
-    final url = Uri.parse('http://10.0.2.2:5001/get_user');
+    final url = Uri.parse('${backendUrl}get_user');
 
     try {
       final response = await http.get(url);
@@ -35,7 +36,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _logout(BuildContext context) async {
-    final url = Uri.parse('http://10.0.2.2:5001/logout');
+    final url = Uri.parse('${backendUrl}logout');
 
     try {
       final response = await http.post(url);

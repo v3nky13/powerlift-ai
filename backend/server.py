@@ -366,6 +366,7 @@ def update_status():
         if exercise_name in updated_params:
             adjust_params(updated_params[exercise_name], feedback)
     
+    workout_completed_date = datetime.today().date()
     return jsonify({"message": "Workout updated successfully"}), 200
 
 @app.route('/checkWorkout', methods=['GET'])

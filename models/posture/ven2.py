@@ -6,6 +6,8 @@ import os
 from matplotlib import pyplot as plt
 from enum import Enum
 
+app = Flask(__name__)
+
 class SquatPhase(Enum):
     START = 1
     DESCENT = 2

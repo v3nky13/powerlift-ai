@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:main_app/home_page.dart';
+import 'config.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -37,7 +38,7 @@ class _SchedulePageState extends State<SchedulePage> {
 
   Future<void> fetchWorkoutData() async {
     final String currentDay = days[currentIndex];
-    final String apiUrl = 'http://10.0.2.2:5001/workout?day=$currentDay';
+    final String apiUrl = '${backendUrl}workout?day=$currentDay';
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -147,7 +148,7 @@ class _WorkoutCardState extends State<WorkoutCard> {
   void _checkWorkoutCompletion() async {
     // API call to check if today's workout is already completed
     final response = await http.get(
-      Uri.parse("http://10.0.2.2:5001/checkWorkout"),
+      Uri.parse("${backendUrl}checkWorkout"),
     );
 
     if (response.statusCode == 200) {
@@ -171,7 +172,7 @@ class _WorkoutCardState extends State<WorkoutCard> {
   Future<void> completeWorkout() async {
     if (!_canCompleteWorkout()) return;
 
-    final String apiUrl = "http://10.0.2.2:5001/updateStatus";
+    final String apiUrl = "${backendUrl}updateStatus";
 
     final List<Map<String, dynamic>> statusData = exerciseStatus.entries
         .map((entry) => {

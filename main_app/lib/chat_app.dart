@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'config.dart';
 
 class ChatApp extends StatelessWidget {
   @override
@@ -45,7 +46,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
 
     final response = await http.post(
-      Uri.parse("http://10.0.2.2:5001/chat"),
+      Uri.parse("${backendUrl}chat"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({"question": _controller.text}),
     );

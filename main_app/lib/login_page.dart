@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'home_page.dart';
 import 'signup_page.dart';
 import 'dart:convert';
+import 'config.dart';
 
 class LoginPage extends StatefulWidget {
   @override
@@ -22,7 +23,7 @@ class _LoginPageState extends State<LoginPage> {
       final email = _emailController.text;
       final password = _passwordController.text;
 
-      final url = Uri.parse('http://10.0.2.2:5001/login'); // API URL
+      final url = Uri.parse('${backendUrl}login'); // API URL
 
       try {
         final response = await http.post(

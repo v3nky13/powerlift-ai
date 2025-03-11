@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'config.dart';
 
 class SignUpPage extends StatefulWidget {
   @override
@@ -27,7 +28,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
   Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
-      final url = Uri.parse('http://10.0.2.2:5001/register'); // Replace with your backend URL
+      final url = Uri.parse('${backendUrl}register'); // Replace with your backend URL
 
       final Map<String, dynamic> userData = {
         "name": _nameController.text,
