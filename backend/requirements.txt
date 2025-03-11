@@ -10,3 +10,5 @@ langchain_groq
 langchain_chroma
 langchain_huggingface
 tensorflow
+flask_cors
+protobuf==3.20.3

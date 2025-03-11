@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:intl/intl.dart';
+import 'package:main_app/home_page.dart';
 
 void main() {
   runApp(MaterialApp(
@@ -24,26 +26,39 @@ class _SchedulePageState extends State<SchedulePage> {
   @override
   void initState() {
     super.initState();
+    currentIndex = _getCurrentDayIndex();
     fetchWorkoutData();
+  }
+
+  int _getCurrentDayIndex() {
+    String today = DateFormat('EEEE').format(DateTime.now());
+    return days.indexOf(today);
   }
 
   Future<void> fetchWorkoutData() async {
     final String currentDay = days[currentIndex];
-    final String apiUrl = 'https://your-backend.com/api/workout?day=$currentDay'; // Replace with actual backend URL
+    final String apiUrl = 'http://10.0.2.2:5001/workout?day=$currentDay';
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         setState(() {
-          exercises = List<Map<String, String>>.from(data['exercises']);
+          exercises = (data[currentDay] as List? ?? [])
+              .map((e) => {
+                    "name": e["name"].toString(),
+                    "weight": e["weight"].toString(),
+                    "reps": e["reps"].toString(),
+                    "sets": e["sets"].toString(),
+                  })
+              .toList();
           isLoading = false;
         });
       } else {
         throw Exception("Failed to load data");
       }
     } catch (e) {
-      print("Error: $e");
+      print("Error from fetchWorkoutData: $e");
       setState(() {
         isLoading = false;
       });
@@ -84,19 +99,21 @@ class _SchedulePageState extends State<SchedulePage> {
                 onNavigateRight: navigateRight,
                 isFirst: currentIndex == 0,
                 isLast: currentIndex == days.length - 1,
+                isToday: currentIndex == _getCurrentDayIndex(),
               ),
       ),
     );
   }
 }
 
-class WorkoutCard extends StatelessWidget {
+class WorkoutCard extends StatefulWidget {
   final String day;
   final bool isRestDay;
   final VoidCallback onNavigateLeft;
   final VoidCallback onNavigateRight;
   final bool isFirst;
   final bool isLast;
+  final bool isToday;
   final List<Map<String, String>> exercises;
 
   WorkoutCard({
@@ -107,7 +124,82 @@ class WorkoutCard extends StatelessWidget {
     required this.onNavigateRight,
     required this.isFirst,
     required this.isLast,
+    required this.isToday,
   });
+
+  @override
+  _WorkoutCardState createState() => _WorkoutCardState();
+}
+
+class _WorkoutCardState extends State<WorkoutCard> {
+  Map<String, int?> exerciseStatus = {};
+  bool isWorkoutCompleted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkWorkoutCompletion();
+    for (var exercise in widget.exercises) {
+      exerciseStatus[exercise['name']!] = null; // Initially no status selected
+    }
+  }
+
+  void _checkWorkoutCompletion() async {
+    // API call to check if today's workout is already completed
+    final response = await http.get(
+      Uri.parse("http://10.0.2.2:5001/checkWorkout"),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      setState(() {
+        isWorkoutCompleted = data['completed'] ?? false;
+      });
+    }
+  }
+
+  void updateExerciseStatus(String exerciseName, int status) {
+    setState(() {
+      exerciseStatus[exerciseName] = status;
+    });
+  }
+
+  bool _canCompleteWorkout() {
+    return !exerciseStatus.values.contains(null); // Ensures all exercises have a status
+  }
+
+  Future<void> completeWorkout() async {
+    if (!_canCompleteWorkout()) return;
+
+    final String apiUrl = "http://10.0.2.2:5001/updateStatus";
+
+    final List<Map<String, dynamic>> statusData = exerciseStatus.entries
+        .map((entry) => {
+              "exercise": entry.key,
+              "status": entry.value ?? "Not Selected",
+            })
+        .toList();
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {"Content-Type": "application/json"},
+        body: json.encode({"day": widget.day, "statuses": statusData}),
+      );
+
+      if (response.statusCode == 200) {
+        print("Workout status updated successfully!");
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+        );
+      } else {
+        print("Error updating workout status: ${response.body}");
+      }
+    } catch (e) {
+      print("Error: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,21 +217,21 @@ class WorkoutCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               IconButton(
-                icon: Icon(Icons.arrow_left, color: isFirst ? Colors.grey : Colors.black),
-                onPressed: isFirst ? null : onNavigateLeft,
+                icon: Icon(Icons.arrow_left, color: widget.isFirst ? Colors.grey : Colors.black),
+                onPressed: widget.isFirst ? null : widget.onNavigateLeft,
               ),
               Text(
-                day,
+                widget.day,
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black),
               ),
               IconButton(
-                icon: Icon(Icons.arrow_right, color: isLast ? Colors.grey : Colors.black),
-                onPressed: isLast ? null : onNavigateRight,
+                icon: Icon(Icons.arrow_right, color: widget.isLast ? Colors.grey : Colors.black),
+                onPressed: widget.isLast ? null : widget.onNavigateRight,
               ),
             ],
           ),
           SizedBox(height: 20),
-          if (isRestDay)
+          if (widget.isRestDay)
             Center(
               child: Text(
                 "Rest day",
@@ -149,12 +241,29 @@ class WorkoutCard extends StatelessWidget {
           else
             Expanded(
               child: ListView.builder(
-                itemCount: exercises.length,
+                itemCount: widget.exercises.length,
                 itemBuilder: (context, index) {
                   return ExerciseBlock(
-                    exercise: exercises[index],
+                    exercise: widget.exercises[index],
+                    selectedStatus: exerciseStatus[widget.exercises[index]['name']!],
+                    onStatusSelected: updateExerciseStatus,
                   );
                 },
+              ),
+            ),
+          SizedBox(height: 10),
+          if (widget.isToday)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isWorkoutCompleted || !_canCompleteWorkout()
+                  ? null
+                  : completeWorkout,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isWorkoutCompleted || !_canCompleteWorkout() ? Colors.grey : Colors.black,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(isWorkoutCompleted ? "Workout Completed" : "Complete Today's Workout"),
               ),
             ),
         ],
@@ -165,8 +274,14 @@ class WorkoutCard extends StatelessWidget {
 
 class ExerciseBlock extends StatefulWidget {
   final Map<String, String> exercise;
+  final int? selectedStatus;
+  final Function(String, int) onStatusSelected;
 
-  ExerciseBlock({required this.exercise});
+  ExerciseBlock({
+    required this.exercise,
+    required this.selectedStatus,
+    required this.onStatusSelected,
+  });
 
   @override
   _ExerciseBlockState createState() => _ExerciseBlockState();
@@ -174,97 +289,111 @@ class ExerciseBlock extends StatefulWidget {
 
 class _ExerciseBlockState extends State<ExerciseBlock> {
   bool isExpanded = false;
-  int? selectedStatus;
-
-  Future<void> sendStatusToBackend(int status) async {
-    final String apiUrl = "https://your-backend.com/api/updateStatus"; // Replace with actual API
-
-    final Map<String, dynamic> data = {
-      "exercise": widget.exercise['name'],
-      "status": status,
-    };
-
-    try {
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {"Content-Type": "application/json"},
-        body: json.encode(data),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception("Failed to update status");
-      }
-    } catch (e) {
-      print("Error: $e");
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.black,
+      color: Colors.white,
       margin: EdgeInsets.symmetric(vertical: 8),
       child: Column(
         children: [
-          ListTile(
-            title: Text(
-              widget.exercise['name']!,
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            trailing: IconButton(
-              icon: Icon(
-                isExpanded ? Icons.expand_less : Icons.expand_more,
-                color: Colors.white,
-              ),
-              onPressed: () {
-                setState(() {
-                  isExpanded = !isExpanded;
-                });
-              },
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.exercise['name']!,
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    icon: Icon(
+                      isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: Colors.black,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        isExpanded = !isExpanded;
+                      });
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
           if (isExpanded)
             Column(
               children: [
-                Text("Weight: ${widget.exercise['weight']}", style: TextStyle(color: Colors.white)),
-                Text("Reps: ${widget.exercise['reps']}", style: TextStyle(color: Colors.white)),
-                Text("Sets: ${widget.exercise['sets']}", style: TextStyle(color: Colors.white)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Column(
+                    children: [
+                      _buildInfoRow("Sets", widget.exercise['sets']!),
+                      _buildInfoRow("Reps", widget.exercise['reps']!),
+                      _buildInfoRow("Weight", widget.exercise['weight']!),
+                    ],
+                  ),
+                ),
+                SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Radio(
-                      value: 1,
-                      groupValue: selectedStatus,
-                      onChanged: (val) {
-                        setState(() => selectedStatus = val as int?);
-                        sendStatusToBackend(val as int);
-                      },
-                    ),
-                    Text('Optimal', style: TextStyle(color: Colors.white)),
-                    Radio(
-                      value: 2,
-                      groupValue: selectedStatus,
-                      onChanged: (val) {
-                        setState(() => selectedStatus = val as int?);
-                        sendStatusToBackend(val as int);
-                      },
-                    ),
-                    Text('Fatigue', style: TextStyle(color: Colors.white)),
-                    Radio(
-                      value: 3,
-                      groupValue: selectedStatus,
-                      onChanged: (val) {
-                        setState(() => selectedStatus = val as int?);
-                        sendStatusToBackend(val as int);
-                      },
-                    ),
-                    Text('No', style: TextStyle(color: Colors.white)),
+                    _radioOption(1, "Optimal"),
+                    _radioOption(2, "Fatigue"),
                   ],
                 ),
+                Center(child: _radioOption(3, "Not Completed")),
+                SizedBox(height: 10),
               ],
             ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(color: Colors.black, fontSize: 16),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(color: Colors.black, fontSize: 16, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.right,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _radioOption(int value, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Radio(
+          value: value,
+          groupValue: widget.selectedStatus,
+          onChanged: (val) {
+            setState(() {
+              widget.onStatusSelected(widget.exercise['name']!, val as int);
+            });
+          },
+        ),
+        Text(label, style: TextStyle(color: Colors.black)),
+      ],
     );
   }
 }

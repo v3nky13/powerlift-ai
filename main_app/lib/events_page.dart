@@ -132,59 +132,62 @@ class _EventsPageState extends State<EventsPage> {
                   ),
 
                   // Custom Tab
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Select Goal Date:'),
-                        SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: () => _pickDate(context),
-                          child: Container(
-                            padding: EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              _selectedDate == null
-                                  ? 'Tap to select a date'
-                                  : DateFormat('yyyy-MM-dd').format(_selectedDate!),
-                              style: TextStyle(fontSize: 16),
+                  SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Select Goal Date:'),
+                          SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () => _pickDate(context),
+                            child: Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                _selectedDate == null
+                                    ? 'Tap to select a date'
+                                    : DateFormat('yyyy-MM-dd').format(_selectedDate!),
+                                style: TextStyle(fontSize: 16),
+                              ),
                             ),
                           ),
-                        ),
-                        SizedBox(height: 16),
-                        TextField(
-                          controller: squatController,
-                          decoration: InputDecoration(labelText: 'Set Squat Weight'),
-                          keyboardType: TextInputType.number,
-                        ),
-                        SizedBox(height: 8),
-                        TextField(
-                          controller: benchController,
-                          decoration: InputDecoration(labelText: 'Set Benchpress Weight'),
-                          keyboardType: TextInputType.number,
-                        ),
-                        SizedBox(height: 8),
-                        TextField(
-                          controller: deadliftController,
-                          decoration: InputDecoration(labelText: 'Set Deadlift Weight'),
-                          keyboardType: TextInputType.number,
-                        ),
-                        SizedBox(height: 16),
-                        _isLoading
-                            ? Center(child: CircularProgressIndicator())
-                            : ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.black,
-                                  foregroundColor: Colors.white,
+                          SizedBox(height: 16),
+                          TextField(
+                            controller: squatController,
+                            decoration: InputDecoration(labelText: 'Set Squat Weight'),
+                            keyboardType: TextInputType.number,
+                          ),
+                          SizedBox(height: 8),
+                          TextField(
+                            controller: benchController,
+                            decoration: InputDecoration(labelText: 'Set Benchpress Weight'),
+                            keyboardType: TextInputType.number,
+                          ),
+                          SizedBox(height: 8),
+                          TextField(
+                            controller: deadliftController,
+                            decoration: InputDecoration(labelText: 'Set Deadlift Weight'),
+                            keyboardType: TextInputType.number,
+                          ),
+                          SizedBox(height: 16),
+                          _isLoading
+                              ? Center(child: CircularProgressIndicator())
+                              : ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.black,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  onPressed: _setCustomGoal,
+                                  child: Text('Set Custom Goal'),
                                 ),
-                                onPressed: _setCustomGoal,
-                                child: Text('Set Custom Goal'),
-                              ),
-                      ],
+                          SizedBox(height: 100), // Adds extra space to prevent keyboard overflow
+                        ],
+                      ),
                     ),
                   ),
                 ],

@@ -16,6 +16,7 @@ from langchain_chroma import Chroma
 from langchain_huggingface import HuggingFaceEmbeddings
 from dotenv import load_dotenv
 from datetime import datetime
+import random
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
@@ -170,9 +171,6 @@ def get_rank_score():
     data = request.get_json()
     event_id = data.get('event_id')
     event_date = data.get('event_date')
-    print("Event ID:", event_id)
-    print("Event Date:", event_date)
-    print("Current User ID:", currUserId)
 
     user = User.query.filter_by(id=currUserId).first()
 
@@ -235,6 +233,148 @@ def get_rank_score():
         'default_bench_weight': default_bench_weight,
         'default_deadlift_weight': default_deadlift_weight
     })
+
+# Athlete stats
+athlete_stats = {
+    "age": 30,
+    "weight": 80,
+    "gender": "Male",
+    "bestSquat": 150,
+    "bestBench": 80,
+    "bestDeadlift": 180,
+    "targetSquat": 220,
+    "targetBench": 110,
+    "targetDeadlift": 250,
+    "duration": 60,
+}
+
+exercise_to_stat_map = {
+    "squat": "bestSquat",
+    "bench_press": "bestBench",
+    "deadlift": "bestDeadlift",
+    "seated_leg_curl": "bestSquat",
+    "bulgarian_split_squat": "bestSquat",
+    "barbell_row": "bestDeadlift",
+    "pause_deadlift": "bestDeadlift",
+    "lat_pulldown": "bestBench",
+    "dumbbell_lateral_raise": "bestBench",
+}
+
+# Function to adjust workout based on feedback
+def adjust_params(params, feedback):
+    max_weight = int(athlete_stats[exercise_to_stat_map[params["exercise"]]] * 1.1)
+    min_weight = 10
+
+    if feedback == "optimal":
+        params["weight"] = min(params["weight"] + 5, max_weight)
+        params["sets"] = min(params["sets"] + 1, 6)
+    elif feedback in ["fatigue", "incomplete"]:
+        params["weight"] = max(params["weight"] - 5, min_weight)
+        params["sets"] = max(params["sets"] - 1, 2)
+
+# Workout schedule
+workout_schedule = {
+    1: ["squat", "bench_press", "deadlift"],
+    2: ["squat", "bench_press", "deadlift", "seated_leg_curl", "bulgarian_split_squat"],
+    3: "Rest",
+    4: ["squat", "bench_press", "deadlift", "barbell_row", "pause_deadlift"],
+    5: "Rest",
+    6: ["squat", "bench_press", "deadlift", "lat_pulldown", "dumbbell_lateral_raise"],
+    7: "Rest",
+}
+
+updated_params = {}
+exercise_factors = {exercise: 0.5 for exercise in exercise_to_stat_map}
+
+def generate_workout(day):
+    if workout_schedule[day] == "Rest":
+        return "Rest"
+
+    exercises = workout_schedule[day]
+    return {
+        exercise: updated_params.get(
+            exercise,
+            {
+                "exercise": exercise,
+                "weight": int(athlete_stats[exercise_to_stat_map[exercise]] * exercise_factors[exercise]),
+                "sets": 4,
+                "reps": 8 if "deadlift" not in exercise else 6,
+            },
+        )
+        for exercise in exercises
+    }
+
+def get_day_name(day_number):
+    days = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
+    return days[day_number]
+
+@app.route('/workout', methods=['GET'])
+def get_workout():
+    global athlete_stats
+
+    user = User.query.filter_by(id=currUserId).first()
+    dob = datetime.strptime(user.dob, '%Y-%m-%d')
+    today = datetime.today()
+    age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+    athlete_stats = {
+        "age": age,
+        "weight": user.weight,
+        "gender": user.gender,
+        "bestSquat": user.squatPR,
+        "bestBench": user.benchPR,
+        "bestDeadlift": user.deadliftPR,
+        "targetSquat": user.goal_squat_weight,
+        "targetBench": user.goal_bench_weight,
+        "targetDeadlift": user.goal_deadlift_weight,
+        "duration": 60, # needs change
+    }
+
+    formatted_workout = {}
+
+    for day_num, exercises in workout_schedule.items():
+        if exercises == "Rest":
+            formatted_workout[get_day_name(day_num)] = []  # Send an empty list for rest days
+        else:
+            formatted_workout[get_day_name(day_num)] = [
+                {
+                    "name": exercise.replace('_', ' ').title(),
+                    "weight": f"{updated_params.get(exercise, {}).get('weight', int(athlete_stats[exercise_to_stat_map[exercise]] * exercise_factors[exercise]))}kg",
+                    "sets": str(updated_params.get(exercise, {}).get('sets', 4)),
+                    "reps": str(updated_params.get(exercise, {}).get('reps', 8 if "deadlift" not in exercise else 6)),
+                }
+                for exercise in exercises
+            ]
+
+    return jsonify(formatted_workout), 200
+
+workout_completed_date = None
+
+@app.route('/updateStatus', methods=['POST'])
+def update_status():
+    global workout_completed_date
+
+    data = request.json
+    statuses = data.get("statuses", [])
+
+    if not statuses:
+        return jsonify({"error": "No statuses provided"}), 400
+
+    for status_entry in statuses:
+        exercise_name = status_entry.get("exercise")
+        feedback = status_entry.get("status")
+        if exercise_name in updated_params:
+            adjust_params(updated_params[exercise_name], feedback)
+    
+    return jsonify({"message": "Workout updated successfully"}), 200
+
+@app.route('/checkWorkout', methods=['GET'])
+def check_workout():
+    global workout_completed_date
+
+    if workout_completed_date == datetime.today().date():
+        return jsonify({"completed": True}), 200
+    return jsonify({"completed": False}), 200
 
 with app.app_context():
     db.create_all()
