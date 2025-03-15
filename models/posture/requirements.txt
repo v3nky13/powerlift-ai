@@ -1,8 +1,0 @@
-Flask
-Flask-SQLAlchemy
-Flask-Bcrypt
-Flask-Login
-numpy
-opencv-python
-mediapipe
-matplotlib

@@ -1,1 +1,1 @@
-const String backendUrl = "http://192.168.1.8:5001/";
+const String backendUrl = "http://10.0.2.2:5001/";

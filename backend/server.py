@@ -265,12 +265,52 @@ def adjust_params(params, feedback):
     max_weight = int(athlete_stats[exercise_to_stat_map[params["exercise"]]] * 1.1)
     min_weight = 10
 
-    if feedback == "optimal":
+    if feedback == 1:
         params["weight"] = min(params["weight"] + 5, max_weight)
         params["sets"] = min(params["sets"] + 1, 6)
-    elif feedback in ["fatigue", "incomplete"]:
+    elif feedback in [2, 3]:
         params["weight"] = max(params["weight"] - 5, min_weight)
         params["sets"] = max(params["sets"] - 1, 2)
+    else:
+        print("Invalid feedback")
+
+actions = ["increase", "decrease"]
+
+# Generate initial factors using Q-learning
+def update_factor_q_learning(exercise, initial_factor, best_value, target_value, duration):
+    factor = initial_factor
+    state = (exercise, factor)
+    q_values = {}
+
+    for _ in range(10000):
+        action = random.choice(actions)
+        if action == "increase":
+            factor += 0.01
+        elif action == "decrease":
+            factor -= 0.01
+
+        factor = np.clip(factor, 0.4, 0.8)
+        fatigue_penalty = abs(factor - 0.6) * 0.3
+        strength_reward = (factor * target_value / best_value) * 0.7
+        reward = strength_reward - fatigue_penalty
+
+        next_state = (exercise, factor)
+        max_next_q = max(q_values.get((next_state, a), 0) for a in actions)
+        q_values[(state, action)] = q_values.get((state, action), 0) + \
+                                    0.1 * (reward + 0.9 * max_next_q - q_values.get((state, action), 0))
+        state = next_state
+
+    return round(factor, 2)
+
+# Calculate factors for all exercises
+exercise_factors = {}
+for exercise in exercise_to_stat_map:
+    initial_factor = 0.5
+    best_value = athlete_stats[exercise_to_stat_map[exercise]]
+    target_value = athlete_stats[exercise_to_stat_map[exercise].replace("best", "target")]
+    exercise_factors[exercise] = update_factor_q_learning(
+        exercise, initial_factor, best_value, target_value, athlete_stats["duration"]
+    )
 
 # Workout schedule
 workout_schedule = {
@@ -340,7 +380,7 @@ def get_workout():
                 {
                     "name": exercise.replace('_', ' ').title(),
                     "weight": f"{updated_params.get(exercise, {}).get('weight', int(athlete_stats[exercise_to_stat_map[exercise]] * exercise_factors[exercise]))}kg",
-                    "sets": str(updated_params.get(exercise, {}).get('sets', 4)),
+                    "sets": str(updated_params.get(exercise, {}).get('sets', 0)),
                     "reps": str(updated_params.get(exercise, {}).get('reps', 8 if "deadlift" not in exercise else 6)),
                 }
                 for exercise in exercises
@@ -353,7 +393,7 @@ workout_completed_date = None
 @app.route('/updateStatus', methods=['POST'])
 def update_status():
     global workout_completed_date
-
+    
     data = request.json
     statuses = data.get("statuses", [])
 
@@ -361,11 +401,18 @@ def update_status():
         return jsonify({"error": "No statuses provided"}), 400
 
     for status_entry in statuses:
-        exercise_name = status_entry.get("exercise")
+        exercise_name = status_entry.get("exercise").lower().replace(" ", "_")
         feedback = status_entry.get("status")
         if exercise_name in updated_params:
             adjust_params(updated_params[exercise_name], feedback)
-    
+        else:
+            updated_params[exercise_name] = {
+                "exercise": exercise_name,
+                "weight": int(athlete_stats[exercise_to_stat_map[exercise_name]] * exercise_factors[exercise_name]),
+                "sets": 4,
+                "reps": 8 if "deadlift" not in exercise_name else 6,
+            }
+            adjust_params(updated_params[exercise_name], feedback)
     workout_completed_date = datetime.today().date()
     return jsonify({"message": "Workout updated successfully"}), 200
 
