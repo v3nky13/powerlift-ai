@@ -324,25 +324,30 @@ workout_schedule = {
 }
 
 updated_params = {}
-exercise_factors = {exercise: 0.5 for exercise in exercise_to_stat_map}
+
+for exercise in exercise_to_stat_map:
+    updated_params[exercise] = {
+        "exercise": exercise,
+        "weight": int(athlete_stats[exercise_to_stat_map[exercise]] * exercise_factors[exercise]),
+        "sets": 4,
+        "reps": 8 if "deadlift" not in exercise else 6,
+    }
 
 def generate_workout(day):
     if workout_schedule[day] == "Rest":
-        return "Rest"
+        return []
 
     exercises = workout_schedule[day]
-    return {
-        exercise: updated_params.get(
-            exercise,
-            {
-                "exercise": exercise,
-                "weight": int(athlete_stats[exercise_to_stat_map[exercise]] * exercise_factors[exercise]),
-                "sets": 4,
-                "reps": 8 if "deadlift" not in exercise else 6,
-            },
-        )
+    return [
+        {
+            "name": exercise.replace('_', ' ').title(),
+            "weight": f"{updated_params.get(exercise, {}).get('weight', int(athlete_stats[exercise_to_stat_map[exercise]] * exercise_factors[exercise]))}kg",
+            "sets": str(updated_params.get(exercise, {}).get('sets', 4)),
+            "reps": str(updated_params.get(exercise, {}).get('reps', 8 if "deadlift" not in exercise else 6)),
+        }
         for exercise in exercises
-    }
+    ]
+    
 
 def get_day_name(day_number):
     days = {1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday"}
@@ -373,18 +378,7 @@ def get_workout():
     formatted_workout = {}
 
     for day_num, exercises in workout_schedule.items():
-        if exercises == "Rest":
-            formatted_workout[get_day_name(day_num)] = []  # Send an empty list for rest days
-        else:
-            formatted_workout[get_day_name(day_num)] = [
-                {
-                    "name": exercise.replace('_', ' ').title(),
-                    "weight": f"{updated_params.get(exercise, {}).get('weight', int(athlete_stats[exercise_to_stat_map[exercise]] * exercise_factors[exercise]))}kg",
-                    "sets": str(updated_params.get(exercise, {}).get('sets', 0)),
-                    "reps": str(updated_params.get(exercise, {}).get('reps', 8 if "deadlift" not in exercise else 6)),
-                }
-                for exercise in exercises
-            ]
+        formatted_workout[get_day_name(day_num)] = generate_workout(day_num)
 
     return jsonify(formatted_workout), 200
 
@@ -403,16 +397,8 @@ def update_status():
     for status_entry in statuses:
         exercise_name = status_entry.get("exercise").lower().replace(" ", "_")
         feedback = status_entry.get("status")
-        if exercise_name in updated_params:
-            adjust_params(updated_params[exercise_name], feedback)
-        else:
-            updated_params[exercise_name] = {
-                "exercise": exercise_name,
-                "weight": int(athlete_stats[exercise_to_stat_map[exercise_name]] * exercise_factors[exercise_name]),
-                "sets": 4,
-                "reps": 8 if "deadlift" not in exercise_name else 6,
-            }
-            adjust_params(updated_params[exercise_name], feedback)
+        adjust_params(updated_params[exercise_name], feedback)
+
     workout_completed_date = datetime.today().date()
     return jsonify({"message": "Workout updated successfully"}), 200
 

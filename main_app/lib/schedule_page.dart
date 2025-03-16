@@ -253,7 +253,7 @@ class _WorkoutCardState extends State<WorkoutCard> {
               ),
             ),
           SizedBox(height: 10),
-          if (widget.isToday)
+          if (widget.isToday && !widget.isRestDay)
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
